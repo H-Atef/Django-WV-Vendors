@@ -10,7 +10,7 @@ VW Scraper is a Python web scraper developed to extract wedding vendors' informa
 
 ## Technology and Enhancements
 
-- **Design Patterns:** Utilizes the Facade design pattern for maintainability and scalability.
+- **Design Patterns:** Utilizes the Factory design pattern for maintainability and scalability.
 - **Concurrency:** Implements threads to enhance the scraping process for improved speed and efficiency.
 - **Future Enhancements:** Integration with a larger microservices project to provide vendor data. Scalability to include scraping from additional websites.
 
