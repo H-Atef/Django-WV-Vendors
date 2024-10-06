@@ -7,6 +7,7 @@ from selenium.webdriver.support import expected_conditions as ec
 
 import re
 import pandas as pd
+import json
 
 from concurrent.futures import ThreadPoolExecutor
 from threading import Thread
@@ -75,7 +76,7 @@ class InstaVendorDataExtractor:
     
 
     
-    def extract_and_convert_vendor(self,scraper:wv_scraper.ArabiawWebsiteVendorsScraper)->pd.DataFrame:
+    def extract_and_convert_vendor(self,scraper:wv_scraper.InstaVendorsScraper)->pd.DataFrame:
         
             collected_vendors_data=[]
 
@@ -112,63 +113,74 @@ class ArabiawVendorDataExtractor:
 
     def extract_vendor_data_process(self,
                                     vendor_link,
-                                    scraper:wv_scraper.ArabiawWebsiteVendorsScraper,):
+                                    scraper:wv_scraper.ArabiawWebsiteVendorsScraper):
         
         vendor_data = {}
         try:
-            drv=scraper.drv.initialize_driver("google")
-            drv.get(vendor_link)
+            split_vendor_link =vendor_link.split("https://www.arabiaweddings.com/")[1].split("#")[0]
+            vendor_json="https://www.arabiaweddings.com/_next/data/pkKdR-7xWpD7EbKbWkha2/en/"+split_vendor_link+".json"
+            drv=scraper.drv.initialize_requests_client(vendor_json)
+
+            #print(vendor_json)
+
+            if (drv.status_code == 200):  
+                json_data=json.loads(drv.content.decode('utf-8'))
+                vendor_data["vendor_link"]=vendor_link
 
         except Exception as e:
 
             raise ConnectionError("The Driver Cannot Connect To The Website!")
         
         try:
-
-            vendor_data["vendor_name"]=drv.find_element(By.CSS_SELECTOR,
-                                                        '#__next > main > article > header > h1').text
+            name=json_data["pageProps"]["pageData"]["meta"]["title"]
+            vendor_data["vendor_name"]= name if name is not None else "-"
 
         except Exception as e:
 
             vendor_data["vendor_name"]="UNKNOWN"
 
+        
+        try:
+            des=json_data["pageProps"]["pageData"]["meta"]["description"]
+            vendor_data["vendor_description"]= des if des is not None else "-"
+
+        except Exception as e:
+
+            vendor_data["vendor_description"]="UNKNOWN"
+
+
+  
+
 
 
         try:
+            price=json_data["pageProps"]["pageData"]["price"]
+            vendor_data["vendor_price"]= price if price is not None else "-"
 
-            vendor_data['vendor_category']=drv.find_element(By.CSS_SELECTOR,
-                                                    '#__next > main > article >'+
-                                                    ' div.package_section__uyB0n.max-w-7xl.mx-auto.lg\:mt-4 >'+
-                                                    ' div > div.prose.px-4.lg\:px-0 > ul > li').text
+
+        except Exception as e:
+
+            vendor_data["vendor_price"]="UNKNOWN"
+
+        try:
+            category=json_data["pageProps"]["pageData"]["categories"][0]
+            vendor_data['vendor_category']= category if category is not None else "-"
         
         except Exception as e:
             vendor_data["vendor_category"]="Vendor"
 
-        
 
         try:
-            vendor_data['vendor_locations']= drv.find_element(By.CSS_SELECTOR,
-                                            '#__next > main > article >'+
-                                            ' div.package_section__uyB0n.max-w-7xl.mx-auto.lg\:mt-4 > '+
-                                            'div > div.my-3.px-4.lg\:px-0 > div').text
+            address=json_data["pageProps"]["pageData"]["address"]
+            vendor_data['vendor_locations']= address if address is not None else "-"
 
         except Exception as e:
             vendor_data['vendor_locations']="UNKNOWN"
         
 
         try:
-            drv.find_element(By.CSS_SELECTOR,
-                                '#__next > main > article > header > div > button').click()
-            
-            vendor_data['vendor_phone_numbers']=WebDriverWait(drv,10).until(
-            ec.presence_of_element_located(
-                (By.CSS_SELECTOR,
-                    '#headlessui-dialog-\:R2cjjvl6\: > div > '+
-                    'div.relative.mx-auto.rounded-lg.bg-white.p-4.overflow-y-'+
-                    'auto.h-screen.w-screen.md\:h-auto.md\:w-auto.md\:max-w-lg >'+
-                    ' div.m-0.overflow-y-auto.p-0.shadow-none.md\:size-auto.flex.flex'+
-                    '-col.items-center.rounded-lg.bg-white.p-4.shadow-lg > section > div > a'
-            ))).text
+            phone= json_data["pageProps"]["pageData"]["phone"]
+            vendor_data['vendor_phone_numbers']= phone if phone is not None else "-"
         
         except Exception as e:
             vendor_data['vendor_phone_numbers']='UNKNOWN'
@@ -257,10 +269,12 @@ class ArabiawVendorDataExtractor:
         collected_vendors_data=[]
 
         collected_vendors_links=self.collect_vendors_links(scraper)
-        print(collected_vendors_links)
+        print(len(collected_vendors_links))
 
         each_vendor_info=self.extract_each_vendor_data(collected_vendors_links,scraper)
-        print(self.convert_vendors_list_to_df(each_vendor_info))
+        df=self.convert_vendors_list_to_df(each_vendor_info)
+        print(df)
+        df.to_csv("output.csv",index=False)
 
 
 

@@ -18,8 +18,8 @@ class WebScarpingToolInit:
         
         else:
             chrome_options = webdriver.ChromeOptions()
-            chrome_options.add_argument('--headless')
-            chrome_options.add_argument("window-size=1100,641")
+            chrome_options.add_argument("--headless=old")
+            chrome_options.add_argument("--window-size=1200x641")
             prefs = {'profile.default_content_setting_values': {'cookies': 2, 'images': 2, 
                             'plugins': 2, 'popups': 2, 'geolocation': 2, 
                             'notifications': 2, 'auto_select_certificate': 2, 'fullscreen': 2, 

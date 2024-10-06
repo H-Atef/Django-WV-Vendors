@@ -103,10 +103,21 @@ if __name__ == '__main__':
                                                     
                                                     
     #                                                 ])
+    
     scraper=WeddingVendorScraperFactory().create_scraper("Arabiaw"
                                         ,links_list=[
 
-                                        'https://www.arabiaweddings.com/cairo/wedding-venues'
+                                        'https://www.arabiaweddings.com/cairo/wedding-venues',
+                                        'https://www.arabiaweddings.com/cairo/suits-tuxedos',
+                                        'https://www.arabiaweddings.com/cairo/flower-shops',
+                                        'https://www.arabiaweddings.com/cairo/meals',
+                                        'https://www.arabiaweddings.com/cairo/dj-music',
+                                        'https://www.arabiaweddings.com/cairo/balloons-candles',
+                                        'https://www.arabiaweddings.com/cairo/wedding-cakes',
+                                        'https://www.arabiaweddings.com/cairo/zaffeh',
+                                        'https://www.arabiaweddings.com/cairo/car-rental',
+                                        'https://www.arabiaweddings.com/cairo/wedding-rings-jewelry',
+                                        'https://www.arabiaweddings.com/cairo/clubs-unique-venues'
                                                     
                                                     ])
 
