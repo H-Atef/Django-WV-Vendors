@@ -1,0 +1,5 @@
+# Ignore ypcache directory
+__pycache__/
+
+# Ignore all CSV files
+*.csv

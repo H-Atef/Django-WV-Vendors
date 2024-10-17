@@ -117,14 +117,17 @@ class ArabiawVendorDataExtractor:
         
         vendor_data = {}
         try:
-            split_vendor_link =vendor_link.split("https://www.arabiaweddings.com/")[1].split("#")[0]
-            vendor_json="https://www.arabiaweddings.com/_next/data/pkKdR-7xWpD7EbKbWkha2/en/"+split_vendor_link+".json"
-            drv=scraper.drv.initialize_requests_client(vendor_json)
+            
+            drv=scraper.drv.initialize_requests_client(vendor_link)
 
             #print(vendor_json)
 
-            if (drv.status_code == 200):  
-                json_data=json.loads(drv.content.decode('utf-8'))
+            if (drv.status_code == 200): 
+                 
+                page=drv.content.decode("utf-8")
+                soup=BeautifulSoup(page,"lxml")
+                json_tag= soup.find('script', id='__NEXT_DATA__')
+                json_data = json.loads(json_tag.string)["props"]
                 vendor_data["vendor_link"]=vendor_link
 
         except Exception as e:
@@ -148,8 +151,6 @@ class ArabiawVendorDataExtractor:
 
             vendor_data["vendor_description"]="UNKNOWN"
 
-
-  
 
 
 
