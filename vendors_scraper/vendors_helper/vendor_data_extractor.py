@@ -3,6 +3,7 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as ec
+import os
 
 
 import re
@@ -12,9 +13,11 @@ import json
 from concurrent.futures import ThreadPoolExecutor
 from threading import Thread
 
-from egypt_locations import egypt_locations_dict
-import wedding_vendors_scraper as wv_scraper
-from vendor_scraper_helper import VendorScraperHelper as VsHelper 
+from vendors_scraper.vendors_helper.egypt_locations import egypt_locations_dict
+import vendors_scraper.vendors_helper.wedding_vendors_scraper as wv_scraper
+from vendors_scraper.vendors_helper.vendor_scraper_helper import VendorScraperHelper as VsHelper 
+
+from vendors_scraper import models,serializers
 
 
 class VendorDataExtractor:
@@ -35,7 +38,7 @@ class VendorDataExtractor:
 
 class InstaVendorDataExtractor:
 
-    def extract_vendor_data(self,profile_info_elements,category="Vendor")->dict:
+    def extract_vendor_data(self,profile_info_elements,vendor_link,category="Vendor")->dict:
 
         if category is None:
             category="Vendor"
@@ -43,6 +46,7 @@ class InstaVendorDataExtractor:
         vendor_data = {}
 
         if len(profile_info_elements) > 0:
+            vendor_data["vendor_link"]=vendor_link
             vendor_data['vendor_name'] = profile_info_elements[0].get("content").split('•')[0]
             vendor_data['vendor_followers_num'] = profile_info_elements[1].get('content').split(", ")[0]
             vendor_data['vendor_following_num'] = profile_info_elements[1].get('content').split(", ")[1]
@@ -65,8 +69,8 @@ class InstaVendorDataExtractor:
 
             vendor_data['vendor_category'] = category
 
-            # description = profile_info_elements[2].get('content').lower()
-            # vendor_data['vendor_description'] = description if description and description != "" else "Not Available"
+            description = profile_info_elements[2].get('content').lower()
+            vendor_data['vendor_description'] = description if description and description != "" else "Not Available"
 
         return vendor_data
     
@@ -92,10 +96,12 @@ class InstaVendorDataExtractor:
 
                 #Check if category_list exists and has the same length of links_list
                 if scraper.category_list and len(scraper.category_list)==len(scraper.links_list):
-                    vendor_info=self.extract_vendor_data(profile_info_elements
-                                                                                ,scraper.category_list[index])
+                    vendor_info=self.extract_vendor_data(profile_info_elements=profile_info_elements,
+                                                         category=scraper.category_list[index],
+                                                         vendor_link=link)
                 else:
-                    vendor_info=self.extract_vendor_data(profile_info_elements)
+                    vendor_info=self.extract_vendor_data(profile_info_elements=profile_info_elements,
+                                                         vendor_link=link)
 
                 collected_vendors_data.append(vendor_info)
 
@@ -108,7 +114,9 @@ class InstaVendorDataExtractor:
 
 class ArabiawVendorDataExtractor:
 
-    all_included_vendors_list=[]
+
+    def __init__(self):
+        self.all_included_vendors_list=[]
 
 
     def extract_vendor_data_process(self,
@@ -116,14 +124,16 @@ class ArabiawVendorDataExtractor:
                                     scraper:wv_scraper.ArabiawWebsiteVendorsScraper):
         
         vendor_data = {}
+
+     
+
         try:
             
             drv=scraper.drv.initialize_requests_client(vendor_link)
-
-            #print(vendor_json)
+            
 
             if (drv.status_code == 200): 
-                 
+                
                 page=drv.content.decode("utf-8")
                 soup=BeautifulSoup(page,"lxml")
                 json_tag= soup.find('script', id='__NEXT_DATA__')
@@ -188,6 +198,15 @@ class ArabiawVendorDataExtractor:
 
         self.all_included_vendors_list.append(vendor_data)
 
+        serializer = serializers.VendorSerializer(data=vendor_data)
+        serializer_all = serializers.AllVendorSerializer(data=vendor_data)
+
+        if serializer.is_valid() and not models.VendorInfo.objects.filter(vendor_link=vendor_link).exists():
+            serializer.save()
+
+            if serializer_all.is_valid():
+                serializer_all.save()
+
         drv.close()
 
 
@@ -195,7 +214,6 @@ class ArabiawVendorDataExtractor:
                             collected_vendors_links,
                             scraper:wv_scraper.ArabiawWebsiteVendorsScraper)->list:
         
-
         
         thread_list=[]
         
@@ -213,69 +231,84 @@ class ArabiawVendorDataExtractor:
 
         return self.all_included_vendors_list
     
-    # def extract_each_vendor_data(self, collected_vendors_links, scraper):
-    #     with ThreadPoolExecutor() as executor:
-    #         futures = []
-    #         for vendor_link in collected_vendors_links:
-    #             futures.append(executor.submit(self.extract_vendor_data_process, vendor_link, scraper))
-
-    #         for future in futures:
-    #             future.result()
-
-    #     return self.all_included_vendors_list
-
+ 
     
     def convert_vendors_list_to_df(self,vendors_info_list)->pd.DataFrame:
         df = pd.DataFrame(vendors_info_list)
         return df
     
-    def collect_vendors_links(self,
-                              scraper:wv_scraper.ArabiawWebsiteVendorsScraper)->list:
-
-        collected_vendors_links=[]
+    def collect_vendors_links(self, scraper: wv_scraper.ArabiawWebsiteVendorsScraper) -> list:
+        collected_vendors_links = []
 
         for link in scraper.links_list:
-
             try:
-                page=scraper.drv.initialize_requests_client(link)
+                page = scraper.drv.initialize_requests_client(link)
             except Exception as e:
                 raise Exception("Error In Connection")
-                
-            soup=BeautifulSoup(page.content,"lxml")
-
-            specified_vendors_section=soup.find("section",
-                                                {'class':'listing_search__sICwA'}).select_one("ul")
             
-            specified_vendors_links= list(
+            if page.status_code == 200:
+                soup = BeautifulSoup(page.content, "lxml")
 
-                set(['https://www.arabiaweddings.com'+str(x.get('href')) 
-                for x in  specified_vendors_section.find_all("a")])
-                
-                                        )
-            
-            #print(specified_vendors_links)
-            collected_vendors_links.extend(specified_vendors_links)
+                # Extract category name from the link
+                category_name = link.split('/')[-1].split("?")[0]
 
-        page.close()
+                # Check if the category already exists in the database
+                try:
+                    vendor_category = models.VendorCategory.objects.get(vendor_category=category_name)
+                    category_tid = vendor_category.vendor_category_tid  # If found, use existing tid
+
+                except models.VendorCategory.DoesNotExist:
+                    # If not found, get the category_id from the page
+                    script_tag = soup.find('script', id='__NEXT_DATA__')
+                    json_data = json.loads(script_tag.string)
+                    category_tid = json_data['props']['pageProps']['pageData']["tid"]
+                    
+                    # Create a new entry in the VendorCategory model
+                    vendor_category = models.VendorCategory.objects.create(vendor_category=category_name, vendor_category_tid=category_tid)
+
+                page.close()
+
+                link_page_num = int(link.split("?page=")[1]) - 1
+
+                vendors_list_url = f"https://www.arabiaweddings.com/api/vendor/list?&page={link_page_num}&tid={category_tid}"
+
+                json_v_data = scraper.drv.initialize_requests_client(vendors_list_url)
+
+                # Construct a list of full URLs for each vendor within a category
+                vendors_category_list = [
+                    f"https://www.arabiaweddings.com/{x['url']}"
+                    for x in json_v_data.json()["results"]
+                ]
+
+                collected_vendors_links.extend(vendors_category_list)
+
+                json_v_data.close()
 
         return collected_vendors_links
-    
+        
     
     
 
     
     def extract_and_convert_vendor(self,
-                                   scraper:wv_scraper.ArabiawWebsiteVendorsScraper):
+                                   scraper:wv_scraper.ArabiawWebsiteVendorsScraper)->pd.DataFrame:
         
-        collected_vendors_data=[]
+
 
         collected_vendors_links=self.collect_vendors_links(scraper)
-        print(len(collected_vendors_links))
+        #print(len(collected_vendors_links))
 
         each_vendor_info=self.extract_each_vendor_data(collected_vendors_links,scraper)
         df=self.convert_vendors_list_to_df(each_vendor_info)
-        print(df)
-        df.to_csv("output.csv",index=False)
+
+        # print(len(df))
+
+        
+        if not os.path.exists('./vendors_scraper/vendors_helper/csv_outputs'):
+            os.makedirs('./vendors_scraper/vendors_helper/csv_outputs')
+        df.to_csv("./vendors_scraper/vendors_helper/csv_outputs/output.csv",index=False)
+
+        return df
 
 
 
