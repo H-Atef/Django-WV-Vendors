@@ -30,7 +30,8 @@ class InstaVendorInfo(BaseVendorInfo):
         verbose_name_plural = "Instagram Vendors"
 
 class VendorCategory(models.Model):
-    # Assuming you have fields here
+    vendor_category= models.CharField(max_length=150, default="-")
+    vendor_category_tid= models.CharField(max_length=50, default="-")
     class Meta:
         verbose_name = "Vendor Category"
         verbose_name_plural = "Vendor Categories"

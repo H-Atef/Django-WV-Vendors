@@ -54,7 +54,7 @@ class InstaVendorDataExtractor:
 
             try:
                 vendor_phone_numbers = re.findall(r'\b\d{11,12}\b', profile_info_elements[2].get('content'))
-                vendor_data['vendor_phone_numbers'] = ",".join(vendor_phone_numbers) if vendor_phone_numbers else ["UNKNOWN"]
+                vendor_data['vendor_phone_numbers'] = ",".join(vendor_phone_numbers) if vendor_phone_numbers else "UNKNOWN"
             except Exception as e:
                 vendor_data['vendor_phone_numbers'] = "UNKNOWN"
 
@@ -62,7 +62,7 @@ class InstaVendorDataExtractor:
                 vendor_locations = [location for location in egypt_locations_dict
                                     if location.lower() in profile_info_elements[2].get('content').lower()]
                 
-                vendor_data['vendor_locations'] = ",".join(vendor_locations) if vendor_locations else ["UNKNOWN"]
+                vendor_data['vendor_locations'] = ",".join(vendor_locations) if vendor_locations else "UNKNOWN"
 
             except Exception as e:
                 vendor_data['vendor_locations'] = "UNKNOWN"
@@ -71,7 +71,7 @@ class InstaVendorDataExtractor:
 
             description = profile_info_elements[2].get('content').lower()
             vendor_data['vendor_description'] = description if description and description != "" else "Not Available"
-
+        
         return vendor_data
     
     def convert_vendors_list_to_df(self,vendors_info_list)->pd.DataFrame:
@@ -197,6 +197,7 @@ class ArabiawVendorDataExtractor:
             vendor_data['vendor_phone_numbers']='UNKNOWN'
 
         self.all_included_vendors_list.append(vendor_data)
+        
 
         serializer = serializers.VendorSerializer(data=vendor_data)
         serializer_all = serializers.AllVendorSerializer(data=vendor_data)
